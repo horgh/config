@@ -1,8 +1,3 @@
-/*
- * 2013-07-07
- * will@summercat.com
- */
-
 package config
 
 import (
@@ -15,20 +10,27 @@ func TestPopulateConfig(t *testing.T) {
 		Str string
 		Abc int64
 	}
+
 	var rawValues = map[string]string{
-		"Str": "Hi there",
-		"Abc": "123",
+		"str": "Hi there",
+		"abc": "123",
 	}
 
 	var myT MyType
 	err := populateConfig(&myT, rawValues)
+
 	if err != nil {
-		t.Errorf("failed to populate: %s", err.Error())
+		t.Errorf("Failed to populate: %s", err.Error())
+		return
 	}
+
 	if myT.Str != "Hi there" {
 		t.Errorf("Failed to parse string")
+		return
 	}
+
 	if myT.Abc != 123 {
 		t.Errorf("Failed to parse int")
+		return
 	}
 }

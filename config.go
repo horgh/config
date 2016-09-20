@@ -1,110 +1,127 @@
-/*
- * 2013-04-28
- * will@summercat.com
- *
- * a config file parser.
- *
- * A note on usage:
- * Due to the fact that we use the reflect package, you must pass in
- * the struct for which you want to parse config keys using all
- * exported fields, or this config package cannot set those fields.
- *
- * As well, key names in the config file itself are currently case
- * sensitive and must match the struct field name.
- *
- * For an example of using this package, see the test(s).
- *
- * For the types that we support parsing out of the struct, refer to
- * the populateConfig() function.
- */
-
+// Package config is a config file parser.
+//
+// A note on usage:
+// Due to the fact that we use the reflect package, you must pass in the struct
+// for which you want to parse config keys using all exported fields, or this
+// config package cannot set those fields.
+//
+// Key names are case insensitive.
+//
+// For an example of using this package, see the test(s).
+//
+// For the types that we support parsing out of the struct, refer to the
+// populateConfig() function.
+//
 package config
 
 import (
 	"bufio"
-	"errors"
-	"io"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-// readConfigFile reads a config file and returns the keys and values in
-// a map. the config file syntax is:
+// readConfigFile reads a config file and returns the keys and values in a map.
+//
+// The config file syntax is:
 // key = value
-// lines may be commented if they begin with a '#' with only whitespace
-// or no whitespace in front of the '#' character.
-// lines may not have trailing '#' to be treated as comments.
+//
+// Lines may be commented if they begin with a '#' with only whitespace or no
+// whitespace in front of the '#' character. Lines currently MAY NOT have
+// trailing '#' to be treated as comments.
 func readConfigFile(path string) (map[string]string, error) {
 	if len(path) == 0 {
-		return nil, errors.New("invalid path")
+		return nil, fmt.Errorf("Invalid path. Path may not be blank.")
 	}
 
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
+	defer fi.Close()
 
-	reader := bufio.NewReader(fi)
+	config := make(map[string]string)
 
-	var config map[string]string = make(map[string]string)
-	for {
-		// XXX: what encoding is this defaulting to?
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
+	scanner := bufio.NewScanner(fi)
 
-		line = strings.TrimSpace(line)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "#") {
 			continue
 		}
-		var parts = strings.SplitAfterN(line, "=", 2)
+
+		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		var key = strings.TrimSpace(parts[0])
-		// XXX: if key has '=' or ' ' in it then we will trim it off
-		//   since this does not restrict us to only the final two
-		//   characters.
-		//   though we likely don't need to support that anyway...
-		key = strings.TrimRight(key, "= ")
-		var value = strings.TrimSpace(parts[1])
+
+		key := strings.ToLower(strings.TrimSpace(parts[0]))
+		value := strings.TrimSpace(parts[1])
+
+		if len(key) == 0 {
+			return nil, fmt.Errorf("Key length is 0")
+		}
+
+		_, exists := config[key]
+		if exists {
+			return nil, fmt.Errorf("Config key defined twice: %s", err)
+		}
+
+		// Permit value to be blank.
+
 		config[key] = value
 	}
+
+	err = scanner.Err()
+	if err != nil {
+		return nil, fmt.Errorf("Error reading from file: %s", err)
+	}
+
 	return config, nil
 }
 
 // populateConfig takes values read from a config and uses them to fill the
-// struct. the values will be converted to the struct's types as necessary.
+// struct. The values will be converted to the struct's types as necessary.
+//
+// To understand the use of reflect in this function, refer to the article Laws
+// of Reflection, or the documentation of the reflect package.
 func populateConfig(config interface{}, rawValues map[string]string) error {
-	var v reflect.Value = reflect.ValueOf(config)
-	// XXX: why is this needed?
-	//   see the 'laws of reflection' article section on structs.
-	var vElem reflect.Value = v.Elem()
-	// we need the type of this struct so we can retrieve member names.
-	var vType reflect.Type = vElem.Type()
-	// iterate over every field of the struct.
-	for i := 0; i < vElem.NumField(); i++ {
-		var f reflect.Value = vElem.Field(i)
-		var fieldName = vType.Field(i).Name
-		// we require that we have read a value for the struct's field.
-		rawValue, ok := rawValues[fieldName]
+	// Make a reflect.Value from the interface.
+	v := reflect.ValueOf(config)
+
+	// Access the value that the interface contains.
+	elem := v.Elem()
+
+	// Make a reflect.Type. This describes the Go type. We can use it to get
+	// struct field names.
+	elemType := elem.Type()
+
+	// Iterate over every field of the struct.
+	for i := 0; i < elem.NumField(); i++ {
+		// Access the field.
+		f := elem.Field(i)
+
+		// Determine the field name.
+		fieldName := elemType.Field(i).Name
+
+		// We require this field was in the config file.
+		rawValue, ok := rawValues[strings.ToLower(fieldName)]
 		if !ok {
-			return errors.New("Field " + fieldName + " not found in config")
+			return fmt.Errorf("Field %s not found in config file", fieldName)
 		}
 
-		// we support a subset of types ('kinds' in reflect) currently.
+		// Convert each value string, if necessary, to the necessary Go type.
+		// We support a subset of types ('kinds' in reflect) currently.
+
 		if f.Kind() == reflect.Int64 {
-			// convert the string to an int64.
 			converted, err := strconv.ParseInt(rawValue, 10, 64)
 			if err != nil {
-				return err
+				return fmt.Errorf("Unable to convert field %s value %s to int64: %s",
+					fieldName, rawValue, err)
 			}
+
 			f.SetInt(converted)
 			continue
 		}
@@ -112,8 +129,10 @@ func populateConfig(config interface{}, rawValues map[string]string) error {
 		if f.Kind() == reflect.Uint64 {
 			converted, err := strconv.ParseUint(rawValue, 10, 64)
 			if err != nil {
-				return err
+				return fmt.Errorf("Unable to convert field %s value %s to uint64: %s",
+					fieldName, rawValue, err)
 			}
+
 			f.SetUint(converted)
 			continue
 		}
@@ -123,33 +142,38 @@ func populateConfig(config interface{}, rawValues map[string]string) error {
 			continue
 		}
 
-		return errors.New("Unhandled field kind: " + f.Kind().String())
+		return fmt.Errorf("Field %s: Value: %s: Field kind not yet supported: %s",
+			fieldName, rawValue, f.Kind().String())
 	}
+
 	return nil
 }
 
 // GetConfig reads a config file and populates a struct with what is read.
-// we use the reflect package to populate the struct from the config.
-// currently every member of the struct must have had a value set in the
-// config. that is, every config option is required.
+//
+// We use the reflect package to populate the struct from the config.
+//
+// Currently every member of the struct must have had a value set in the
+// config. That is, every config option is required.
 func GetConfig(path string, config interface{}) error {
-	// we don't need to parameter check path or keys. why?
-	// path will get checked when we read the config.
-	// we do not need to check anything with the config as it is up to the
-	// caller to ensure that they gave us a struct with members they want
-	// parsed out of a config.
+	// We don't need to parameter check path or keys. Why? Because path will get
+	// checked when we read the config.
 
-	// first read in the config - every key will be associated with a value
-	// which is a string.
+	// We do not need to check anything with the config as it is up to the caller
+	// to ensure that they gave us a struct with members they want parsed out of
+	// a config.
+
+	// First read in the config. Every key will be associated with a value which
+	// is a string.
 	rawValues, err := readConfigFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to read config: %s: %s", err, path)
 	}
 
-	// fill the struct with the values read from the config.
+	// Fill the struct with the values read from the config.
 	err = populateConfig(config, rawValues)
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to populate config: %s", err)
 	}
 
 	return nil
