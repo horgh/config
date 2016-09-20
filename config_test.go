@@ -17,7 +17,7 @@ func TestPopulateConfig(t *testing.T) {
 	}
 
 	var myT MyType
-	err := populateConfig(&myT, rawValues)
+	err := PopulateStruct(&myT, rawValues)
 
 	if err != nil {
 		t.Errorf("Failed to populate: %s", err.Error())

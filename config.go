@@ -23,7 +23,8 @@ import (
 	"strings"
 )
 
-// readConfigFile reads a config file and returns the keys and values in a map.
+// ReadStringMap a config file and returns the keys and values in a map where
+// keys and values are strings.
 //
 // The config file syntax is:
 // key = value
@@ -31,7 +32,7 @@ import (
 // Lines may be commented if they begin with a '#' with only whitespace or no
 // whitespace in front of the '#' character. Lines currently MAY NOT have
 // trailing '#' to be treated as comments.
-func readConfigFile(path string) (map[string]string, error) {
+func ReadStringMap(path string) (map[string]string, error) {
 	if len(path) == 0 {
 		return nil, fmt.Errorf("Invalid path. Path may not be blank.")
 	}
@@ -82,12 +83,13 @@ func readConfigFile(path string) (map[string]string, error) {
 	return config, nil
 }
 
-// populateConfig takes values read from a config and uses them to fill the
-// struct. The values will be converted to the struct's types as necessary.
+// PopulateStruct takes values read from a config as a string map, and uses them
+// to populate a struct. The values will be converted to the struct's types as
+// necessary.
 //
 // To understand the use of reflect in this function, refer to the article Laws
 // of Reflection, or the documentation of the reflect package.
-func populateConfig(config interface{}, rawValues map[string]string) error {
+func PopulateStruct(config interface{}, rawValues map[string]string) error {
 	// Make a reflect.Value from the interface.
 	v := reflect.ValueOf(config)
 
@@ -114,6 +116,17 @@ func populateConfig(config interface{}, rawValues map[string]string) error {
 
 		// Convert each value string, if necessary, to the necessary Go type.
 		// We support a subset of types ('kinds' in reflect) currently.
+
+		if f.Kind() == reflect.Int32 {
+			converted, err := strconv.ParseInt(rawValue, 10, 32)
+			if err != nil {
+				return fmt.Errorf("Unable to convert field %s value %s to int32: %s",
+					fieldName, rawValue, err)
+			}
+
+			f.SetInt(converted)
+			continue
+		}
 
 		if f.Kind() == reflect.Int64 {
 			converted, err := strconv.ParseInt(rawValue, 10, 64)
@@ -165,13 +178,13 @@ func GetConfig(path string, config interface{}) error {
 
 	// First read in the config. Every key will be associated with a value which
 	// is a string.
-	rawValues, err := readConfigFile(path)
+	rawValues, err := ReadStringMap(path)
 	if err != nil {
 		return fmt.Errorf("Unable to read config: %s: %s", err, path)
 	}
 
 	// Fill the struct with the values read from the config.
-	err = populateConfig(config, rawValues)
+	err = PopulateStruct(config, rawValues)
 	if err != nil {
 		return fmt.Errorf("Unable to populate config: %s", err)
 	}
