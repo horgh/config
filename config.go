@@ -1,9 +1,8 @@
 // Package config is a config file parser.
 //
-// A note on usage:
-// Due to the fact that we use the reflect package, you must pass in the struct
-// for which you want to parse config keys using all exported fields, or this
-// config package cannot set those fields.
+// A note on usage: Due to the fact that we use the reflect package, you must
+// pass in the struct for which you want to parse config keys using all
+// exported fields, or this config package cannot set those fields.
 //
 // Key names are case insensitive.
 //
@@ -11,7 +10,6 @@
 //
 // For the types that we support parsing out of the struct, refer to the
 // populateConfig() function.
-//
 package config
 
 import (
