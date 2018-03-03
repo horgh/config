@@ -32,7 +32,7 @@ import (
 // trailing '#' to be treated as comments.
 func ReadStringMap(path string) (map[string]string, error) {
 	if len(path) == 0 {
-		return nil, fmt.Errorf("Invalid path. Path may not be blank.")
+		return nil, fmt.Errorf("invalid path. Path may not be blank")
 	}
 
 	fi, err := os.Open(path)
@@ -60,12 +60,12 @@ func ReadStringMap(path string) (map[string]string, error) {
 		value := strings.TrimSpace(parts[1])
 
 		if len(key) == 0 {
-			return nil, fmt.Errorf("Key length is 0")
+			return nil, fmt.Errorf("key length is 0")
 		}
 
 		_, exists := config[key]
 		if exists {
-			return nil, fmt.Errorf("Config key defined twice: %s", err)
+			return nil, fmt.Errorf("config key defined twice: %s", err)
 		}
 
 		// Permit value to be blank.
@@ -75,7 +75,7 @@ func ReadStringMap(path string) (map[string]string, error) {
 
 	err = scanner.Err()
 	if err != nil {
-		return nil, fmt.Errorf("Error reading from file: %s", err)
+		return nil, fmt.Errorf("error reading from file: %s", err)
 	}
 
 	return config, nil
@@ -109,7 +109,7 @@ func PopulateStruct(config interface{}, rawValues map[string]string) error {
 		// We require this field was in the config file.
 		rawValue, ok := rawValues[strings.ToLower(fieldName)]
 		if !ok {
-			return fmt.Errorf("Field %s not found in config file", fieldName)
+			return fmt.Errorf("field %s not found in config file", fieldName)
 		}
 
 		// Convert each value string, if necessary, to the necessary Go type.
@@ -118,7 +118,7 @@ func PopulateStruct(config interface{}, rawValues map[string]string) error {
 		if f.Kind() == reflect.Int32 {
 			converted, err := strconv.ParseInt(rawValue, 10, 32)
 			if err != nil {
-				return fmt.Errorf("Unable to convert field %s value %s to int32: %s",
+				return fmt.Errorf("unable to convert field %s value %s to int32: %s",
 					fieldName, rawValue, err)
 			}
 
@@ -129,7 +129,7 @@ func PopulateStruct(config interface{}, rawValues map[string]string) error {
 		if f.Kind() == reflect.Int64 {
 			converted, err := strconv.ParseInt(rawValue, 10, 64)
 			if err != nil {
-				return fmt.Errorf("Unable to convert field %s value %s to int64: %s",
+				return fmt.Errorf("unable to convert field %s value %s to int64: %s",
 					fieldName, rawValue, err)
 			}
 
@@ -140,7 +140,7 @@ func PopulateStruct(config interface{}, rawValues map[string]string) error {
 		if f.Kind() == reflect.Uint64 {
 			converted, err := strconv.ParseUint(rawValue, 10, 64)
 			if err != nil {
-				return fmt.Errorf("Unable to convert field %s value %s to uint64: %s",
+				return fmt.Errorf("unable to convert field %s value %s to uint64: %s",
 					fieldName, rawValue, err)
 			}
 
@@ -153,7 +153,7 @@ func PopulateStruct(config interface{}, rawValues map[string]string) error {
 			continue
 		}
 
-		return fmt.Errorf("Field %s: Value: %s: Field kind not yet supported: %s",
+		return fmt.Errorf("field %s: Value: %s: Field kind not yet supported: %s",
 			fieldName, rawValue, f.Kind().String())
 	}
 
@@ -178,13 +178,13 @@ func GetConfig(path string, config interface{}) error {
 	// is a string.
 	rawValues, err := ReadStringMap(path)
 	if err != nil {
-		return fmt.Errorf("Unable to read config: %s: %s", err, path)
+		return fmt.Errorf("unable to read config: %s: %s", err, path)
 	}
 
 	// Fill the struct with the values read from the config.
 	err = PopulateStruct(config, rawValues)
 	if err != nil {
-		return fmt.Errorf("Unable to populate config: %s", err)
+		return fmt.Errorf("unable to populate config: %s", err)
 	}
 
 	return nil
