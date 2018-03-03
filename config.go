@@ -15,6 +15,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -39,7 +40,11 @@ func ReadStringMap(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer fi.Close()
+	defer func() {
+		if err := fi.Close(); err != nil {
+			log.Printf("error closing %s: %s", path, err)
+		}
+	}()
 
 	config := make(map[string]string)
 
