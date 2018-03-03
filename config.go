@@ -70,7 +70,7 @@ func ReadStringMap(path string) (map[string]string, error) {
 
 		_, exists := config[key]
 		if exists {
-			return nil, fmt.Errorf("config key defined twice: %s", err)
+			return nil, fmt.Errorf("config key defined twice: %s", key)
 		}
 
 		// Permit value to be blank.
